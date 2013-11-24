@@ -3,6 +3,6 @@ Interesting added functionality for Aeries using aeries-api
 
 ## Ideas:
 - calculate a grade needed on an assignment to give an overall total grade
-	- would first require aeries-api to give gradebooks (doable, next priority)
+	- now possible with aeries-api giving gradebook details
 - do a better job a predicting grade trends
 - something really, really cool, that we haven't thought of yet
