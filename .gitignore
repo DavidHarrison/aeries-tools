@@ -1,0 +1,4 @@
+#exclude all backups
+*.swp
+*.bak
+*~
