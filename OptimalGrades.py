@@ -44,7 +44,7 @@ TOTAL_CATEGORY = 'Total'
 def optimalGrades(target_percent, assignments, gradebook_categories):
 #Minimizing the cost of the set of percentages
     '''
-    1.  determine a reasonable starting grade set (eg target grade for all
+    determine a reasonable starting grade set (eg target grade for all
         but last assignment (for which the grade will be calculated))
     '''
     # set start_percent to the abitrary (and hopefully close-ish) target_percent
@@ -277,7 +277,7 @@ def optimize(target_percent, assignments, current_position, gradebook_categories
     else:
         return optimize(target_percent, assignments, next_move, gradebook_categories)
 
-def getMoves(partial_move, current_position, OPTIMIZATION_DISTANCE, target_percent, assignments, gradebook_categories))
+def getMoves(partial_move, current_position, remaining_vector_distance, target_percent, assignments, gradebook_categories))
     try:
         if len(partial_move) == len(current_position) - 1:
             final_assignment = assignments[len(assignments)-1]
@@ -291,10 +291,14 @@ def getMoves(partial_move, current_position, OPTIMIZATION_DISTANCE, target_perce
     except:
         pass
     for move in current_moves:
+        increment = remaining_vector_distance / (MOVES_PER_SCORE - 1)
         new_moves = []
         i = 0
-        # TODO make float comparison safe and predictable
-        while i <= OPTIMIZATION_DISTANCE:
+        '''
+        relative safe float comparison, making sure i does not exceed remaining_vector_distance
+            by more an increment or more
+        '''
+        while remaining_vector_distance - i > -1 * (0.5 * increment):
             # current_position at the index of the next score to be added to partial_move
             current_score_value = current_position[len(partial_move)]
             # the adjusted score
@@ -302,10 +306,10 @@ def getMoves(partial_move, current_position, OPTIMIZATION_DISTANCE, target_perce
             # copy partial_move and put in a distance for the current variable
             new_partial_move = list(partial_move).append(new_score_value)
             # intentional use of += to put all moves on the same level
-            new_distance_left = Math.sqrt(OPTIMIZATION_DISTANCE**2 - i**2)
+            new_distance_left = Math.sqrt(remaining_vector_distance**2 - i**2)
             new_moves += getMoves(new_partial_move, current_position, new_distance_left)
             # increment i so that it will loop through MOVES_PER_SCORE times
-            i += OPTIMIZATION_DISTANCE / (MOVES_PER_SCORE - 1)
+            i += increment
             return new_moves
 
 def getMinCostMove(moves, assignments, gradebook_categories):
