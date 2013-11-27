@@ -29,9 +29,9 @@ CATEGORY_NAME = 'name'
 ### the weight of the category (when all categories are active)
 CATEGORY_WEIGHT = 'weight percent'
 ### how many points were recieved in the category
-CATEGORY_SCORE_POINTS = 'max points'
+CATEGORY_SCORE_POINTS = 'recieved points'
 ### the max points of the category as it stands in Aeries
-CATEGORY_MAX_POINTS = 'recieved points'
+CATEGORY_MAX_POINTS = 'max points'
 ### the percentage of the category as it stands in Aeries
 CATEGORY_PERCENT = 'percent'
 ### name of the category for gradebook totals
@@ -82,31 +82,56 @@ def getNeededPercent(target_percent, assignment, gradebook_categories,
         assignments = [assignment]
     if assignment_scores == None:
         assignment_scores = []
+    # works so far
     min_percent = getMinPercent(assignments, gradebook_categories)
+    #print "min percent: " + str(min_percent)
+    # works so far
     other_assignment_deltas = getOtherAssignmentDeltas(assignments,
                                                         assignment_scores,
                                                         gradebook_categories,
                                                         assignment)
+    #print "other assignment deltas: " + str(other_assignment_deltas)
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
                                                     gradebook_categories)
+    #print "overall assignment weight: " + str(overall_assignment_weight)
+    # works so far
     overall_delta_needed = target_percent - min_percent - other_assignment_deltas
-    score_needed = overall_delta_needed/overall_assignment_weight
-    return score_needed
+    #print "over delta needed: " + str(overall_delta_needed)
+    score_needed = overall_delta_needed / overall_assignment_weight
+    assignment_max_points = float(assignment[ASSIGNMENT_MAX_POINTS])
+    percent_needed = score_needed / assignment_max_points
+    return percent_needed
 
 def getMinPercent(assignments, gradebook_categories):
     min_percent = 0
     for category in gradebook_categories:
-        if category[CATEGORY_NAME] == TOTAL_CATEGORY:
+        category_name = category[CATEGORY_NAME]
+        if category_name == TOTAL_CATEGORY:
             continue
-        if isCategoryActive(category):
+        assignment_categories = getAssignmentCategories(assignments)
+        if isCategoryActive(category) or category_name in assignment_categories:
+            #print "Adding category: " + category[CATEGORY_NAME]
+            # works so far
             category_weight = getCategoryWeight(category[CATEGORY_NAME],
                                                 assignments,
                                                 gradebook_categories)
+            #print "Category weight: " + str(category_weight)
+            # works so far
             min_category_percent = getMinCategoryPercent(category[CATEGORY_NAME],
                                                             assignments,
                                                             gradebook_categories)
-            min_percent += category_weight * min_category_percent
+            category_share = category_weight * min_category_percent
+            #print "Category share: " + str(category_share)
+            min_percent += category_share
     return min_percent
+
+def getAssignmentCategories(assignments):
+    assignment_categories = []
+    for assignment in assignments:
+        category_name = assignment[ASSIGNMENT_CATEGORY]
+        if not category_name in assignment_categories:
+            assignment_categories.append(category_name)
+    return assignment_categories
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
@@ -121,10 +146,15 @@ def getCategoryWeight(category_name, assignments, gradebook_categories):
     if not isWeightingUsed(gradebook_categories):
         return 1
     else:
+        # works so far
         category = getCategory(category_name, gradebook_categories)
+        #print "Category: " + category[CATEGORY_NAME]
+        # works so far
         total_weighting_used = getWeightingUsed(assignments, gradebook_categories)
-        category_weight = getGivenCategoryWeight(category)
-        category_weight = category_weight / total_weighting_used
+        #print "Total weighting used: " + str(total_weighting_used)
+        given_category_weight = getGivenCategoryWeight(category)
+        #print "Given category weight: " + str(given_category_weight)
+        category_weight = given_category_weight / total_weighting_used
         return category_weight
 
 '''
@@ -156,9 +186,11 @@ return the amount of weighting used in total by all categories (if all
 def getWeightingUsed(assignments, gradebook_categories):
     weighting_used = 0
     for category in gradebook_categories:
-        if category[CATEGORY_NAME] == TOTAL_CATEGORY:
+        category_name = category[CATEGORY_NAME]
+        assignment_categories = getAssignmentCategories(assignments)
+        if category_name == TOTAL_CATEGORY:
             continue
-        elif not isCategoryActive(category):
+        elif (not isCategoryActive(category)) and (not category_name in assignment_categories):
             continue
         else:
             category_weight = getGivenCategoryWeight(category)
@@ -190,7 +222,9 @@ return the minimum percentage possible in the category if all assignments in
 def getMinCategoryPercent(category_name, assignments, gradebook_categories):
     category = getCategory(category_name, gradebook_categories)
     category_score_points = float(category[CATEGORY_SCORE_POINTS])
+    #print "Category score points: " + str(category_score_points)
     category_max_points = float(category[CATEGORY_MAX_POINTS])
+    #print "Category max points: " + str(category_max_points)
     for assignment in assignments:
         if assignment[ASSIGNMENT_CATEGORY] == category_name:
             '''
@@ -198,16 +232,18 @@ def getMinCategoryPercent(category_name, assignments, gradebook_categories):
                 recieved (but not max points) to give it a score of zero
             '''
             if isAssignmentGraded(assignment):
+                #print "Removing " + str(assignment[ASSIGNMENT_SCORE_POINTS]) + " score points from active assignment: " + assignment[ASSIGNMENT_NAME]
                 category_score_points -= float(assignment[ASSIGNMENT_SCORE_POINTS])
 
             #if the assignment has not yet been graded, add its max points to the
             #   categories max points and do not add any score points to add the
             #   assignment with a score of zero
             else:
+                #print "Adding " + str(assignment[ASSIGNMENT_MAX_POINTS]) + " max points from inactive assignment: " + assignment[ASSIGNMENT_NAME]
                 category_max_points += float(assignment[ASSIGNMENT_MAX_POINTS])
         else:
             continue
-    min_category_percent = category_score_points / category_max_points
+    min_category_percent = (category_score_points / category_max_points) * 100
     return min_category_percent
 
 def isAssignmentGraded(assignment):
@@ -257,20 +293,35 @@ get the overall weight of the assignment (for each point on the assignment,
 weight points change in the overall grade (weight will be <= 1))
 '''
 def getAssignmentWeight(assignment, assignments, gradebook_categories):
+    # works so far
     assignment_category = assignment[ASSIGNMENT_CATEGORY]
+    #print "Assignment category: " + assignment_category
+    # works so far
     category_weight = getCategoryWeight(assignment_category, assignments, gradebook_categories)
+    #print "Category weight: " + str(category_weight)
+    # works so far
     category = getCategory(assignment_category, gradebook_categories)
+    #print "Category: " + category[CATEGORY_NAME]
+    # works so far
     if not isWeightingUsed(gradebook_categories):
+        #print "Weighting not used"
         total_points_max = getTotalPointsMax(assignments, gradebook_categories)
+        #print "Total points max: " + str(total_points_max)
         assignment_weight_in_category = 1.0 / total_points_max
     else:
+        #print "Weighting used"
+        # works so far
         assignment_weight_in_category = getAssignmentWeightInCategory(assignments, category)
+        #print "Assignment weight in category: " + str(assignment_weight_in_category)
     assignment_weight = assignment_weight_in_category * category_weight
     return assignment_weight
 
 def getTotalPointsMax(assignments, gradebook_categories):
     total_points_max = 0
     for category in gradebook_categories:
+        category_name = category[CATEGORY_NAME]
+        if category_name == TOTAL_CATEGORY:
+            continue
         if isCategoryActive(category):
             total_points_max += float(category[CATEGORY_MAX_POINTS])
     for assignment in assignments:
