@@ -4,6 +4,7 @@
 ## 0.1 percent
 OPTIMIZATION_DISTANCE = .1
 ## adjust each score with MOVES_PER_SCORE increments
+## (is multiplied by each following score meaning that ultimately there will be MOVES_PER_SCORE**(scores - 1) (accounting for the one score that is calculated, and thus fixed relative to the others)
 MOVES_PER_SCORE = 10
 
 # define dictionary keywords for assignment and category dictionaries
@@ -45,13 +46,6 @@ optimal way to get target_percent with assignments, given gradebook_categories
 '''
 def optimalGrades(target_percent, assignments, gradebook_categories):
     '''
-    Minimizing the cost of the set of percentages
-    '''
-    '''
-    determine a reasonable starting grade set (eg target grade for all
-        but last assignment (for which the grade will be calculated))
-    '''
-    '''
     set start_percent to the abitrary (and hopefully close-ish) target_percent
     '''
     start_percent = target_percent
@@ -70,14 +64,14 @@ def optimalGrades(target_percent, assignments, gradebook_categories):
     needed_percent = getNeededPercent(target_percent, assignment,
                                         gradebook_categories,
                                         assignments=assignments,
-                                        assignment_scores=assignment_scores)))
+                                        assignment_scores=assignment_scores)
     assignment_scores.append(str(needed_percent))
     optimal_assignment_scores = optimize(target_percent, assignments,
                                         assignment_scores,
                                         gradebook_categories)
     optimal_scores_dict = {}
     i = 0
-    for assignment in assignments
+    for assignment in assignments:
         optimal_scores_dict[assignment[ASSIGNMENT_NAME]] = optimal_assignment_scores[i]
         i += 1
     return optimal_scores_dict
@@ -179,6 +173,7 @@ return the categories weight (as given on the weighting table, not necessarily
 '''
 def getGivenCategoryWeight(category):
     return float(category[CATEGORY_WEIGHT]) / 100
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 '''
@@ -190,22 +185,19 @@ def getMinCategoryPercent(category_name, assignments, gradebook_categories):
     current_category_score_points = float(category[CATEGORY_SCORE_POINTS])
     current_category_max_points = float(category[CATEGORY_MAX_POINTS])
     for assignment in assignments:
-        if assignment[ASSIGNMENT_CATEGORY] = category_name:
+        if assignment[ASSIGNMENT_CATEGORY] == category_name:
             '''
             if the assignment is already graded, remove is points from those
                 recieved (but not max points) to give it a score of zero
             '''
             if isAssignmentGraded(assignment):
-                current_category_score_points -=
-                        float(ASSIGNMENT[ASSIGNMENT_SCORE_POINTS])
-            '''
-            if the assignment has not yet been graded, add its max points to the
-                categories max points and do not add any score points to add the
-                assignment with a score of zero
-            '''
+                current_category_score_points -= float(ASSIGNMENT[ASSIGNMENT_SCORE_POINTS])
+
+            #if the assignment has not yet been graded, add its max points to the
+            #   categories max points and do not add any score points to add the
+            #   assignment with a score of zero
             else:
-                current_category_max_points +=
-                        float(ASSIGNMENT[ASSIGNMENT_SCORE_POINTS])
+                current_category_max_points += float(ASSIGNMENT[ASSIGNMENT_SCORE_POINTS])
         else:
             continue
     min_category_percent = category_score_points / category_max_points
@@ -214,12 +206,10 @@ def getMinCategoryPercent(category_name, assignments, gradebook_categories):
 def isAssignmentGraded(assignment):
     if assignment[GRADING_COMPLETE] == ASSIGNMENT_GRADING_COMPLETE_TRUE:
         return True
-    elif assignment[ASSIGNMENT_GRADING_COMPLETE] ==
-            ASSIGNMENT_GRADING_COMPLETE_FALSE:
+    elif assignment[ASSIGNMENT_GRADING_COMPLETE] == ASSIGNMENT_GRADING_COMPLETE_FALSE:
         return False
     else:
-        print "Undefined value for grading completion: " +
-                str(assignment[ASSIGNMENT_GRADING_COMPLETE])
+        print "Undefined value for grading completion: " + str(assignment[ASSIGNMENT_GRADING_COMPLETE])
         raise
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -236,10 +226,10 @@ def getOtherAssignmentDeltas(assignments, assignment_scores, gradebook_categorie
     for assignment in assignents:
         if assignment[ASSIGNMENT_NAME] == exclude_assignment[ASSIGNMENT_NAME]:
             continue
-        else
+        else:
             assignment_delta = getAssignmentDelta(assignment,
                                                     assignment_scores[i],
-                                                    gradebook_categories):
+                                                    gradebook_categories)
             total_assignment_delta += assignment_delta
         i += 1
     return total_assignment_delta
@@ -251,7 +241,7 @@ return the change made to the total grade by assignment
 def getAssignmentDelta(assignment, assignment_score, assignments,
                         gradebook_categories):
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
-                                                    gradebook_categories):
+                                                    gradebook_categories)
     assignment_delta = assignment_score * overall_assignment_weight
 
 '''
@@ -266,8 +256,7 @@ def getAssignmentWeight(assignment, assignments, gradebook_categories):
         total_points_max = getTotalPointsMax(assignments, gradebook_categories)
         assignment_weight_in_category = 1.0 / total_points_max
     else:
-        assignment_weight_in_category =
-                getAssignmentWeightInCategory(assignments, category)
+        assignment_weight_in_category = getAssignmentWeightInCategory(assignments, category)
     assignment_weight = assignment_weight_in_category * category_weight
 
 def getTotalPointsMax(assignments, gradebook_categories):
@@ -306,7 +295,7 @@ def optimize(target_percent, assignments, current_position, gradebook_categories
         return optimize(target_percent, assignments, next_move, gradebook_categories)
 
 def getMoves(partial_move, current_position, remaining_vector_distance,
-                target_percent, assignments, gradebook_categories))
+                target_percent, assignments, gradebook_categories):
     try:
         if len(partial_move) == len(current_position) - 1:
             final_assignment = assignments[len(assignments)-1]
@@ -322,9 +311,9 @@ def getMoves(partial_move, current_position, remaining_vector_distance,
     except:
         pass
     for move in current_moves:
-        increment = remaining_vector_distance / (MOVES_PER_SCORE - 1)
+        increment = 2 * remaining_vector_distance / (MOVES_PER_SCORE - 1)
         new_moves = []
-        i = 0
+        i = -1 * remaing_vector_distance
         '''
         relative safe float comparison, making sure i does not exceed
             remaining_vector_distance by more an increment or more
@@ -371,8 +360,8 @@ def getCost(position, assignments, gradebook_categories):
     cost = 0
     for score in position:
         score_assignment = assignments[position.index(score)]
-        score_category_average =
-                getAssignmentCategoryAverage(score_assignment,
+        score_category_average = getAssignmentCategoryAverage(
+                                                score_assignment,
                                                 gradebook_categories)
         cost += (score - score_category_average)**2
     return cost
