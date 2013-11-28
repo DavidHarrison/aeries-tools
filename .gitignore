@@ -2,3 +2,12 @@
 *.swp
 *.bak
 *~
+
+#unused files
+Old/*
+
+#working python file
+*.pyc
+
+#json test data
+*.json
