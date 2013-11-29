@@ -44,7 +44,10 @@ def getNeededPercent(target_percent, assignment, gradebook_categories,
     overall_delta_needed = target_percent - min_percent - other_assignment_deltas
     score_needed = overall_delta_needed / overall_assignment_weight
     assignment_max_points = float(assignment[ASSIGNMENT_MAX_POINTS])
-    percent_needed = score_needed / assignment_max_points
+    try:
+        percent_needed = score_needed / assignment_max_points
+    except ZeroDivisionError:
+        return None
     return percent_needed
 
 def getMinPercent(assignments, gradebook_categories):

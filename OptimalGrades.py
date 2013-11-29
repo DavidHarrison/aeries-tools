@@ -5,10 +5,20 @@ import math
 import Move
 import NeededGrade
 
+#vector distance to move on non calculated assignments
+#   on each step of optimization
+MOVE_DISTANCE = 0.1
+#number of moves on each dimension
+#   (total moves = MOVES_PER_DIMENSION**(dimensions-1)
+#   including non-unique moves)
+MOVES_PER_DIMENSION = 5
+
 # define dictionary keywords for assignment and category dictionaries
 ## assignment keywords
 ### the name of the category the assignment is part of
 ASSIGNMENT_CATEGORY = 'category'
+### the name of the assignment (short description)
+ASSIGNMENT_NAME = 'description'
 
 ## gradebook categories keywords
 ### the percentage of the category as it stands in Aeries
@@ -39,36 +49,54 @@ def optimalGrades(target_percent, assignments, gradebook_categories):
     set the last score to the percent needed to get exactly target_percent with
         other assignments as start_percent
     '''
-    needed_percent = NeededGrade.getNeededPercent(target_percent, assignment,
+    #get the minimum cost config to start with
+    min_config_cost = None
+    assignments_copy = list(assignments)
+    for assignment in assignments:
+        popped_assignment = assignments_copy.pop(0)
+        assignments_copy.append(popped_assignment)
+        config_scores = list(assignment_scores)
+        needed_percent = NeededGrade.getNeededPercent(target_percent, popped_assignment,
                                                     gradebook_categories,
-                                                    assignments=assignments,
+                                                    assignments=assignments_copy,
                                                     assignment_scores=assignment_scores)
-    assignment_scores.append(str(needed_percent))
-    optimal_assignment_scores = optimize(target_percent, assignments,
-                                            assignment_scores,
-                                            gradebook_categories)
+        if needed_percent == None:
+            continue
+        config_scores.append(str(needed_percent))
+        config_cost = getCost(config_scores, assignments_copy, gradebook_categories)
+        if min_config_cost == None or config_cost < min_config_cost:
+            min_config = list(assignments_copy)
+            min_config_scores = config_scores
+            min_assignment = popped_assignment
+    #init a move generator class instance
+    move_generator = Move.Move(target_percent, min_assignment, gradebook_categories, min_config)
+    move_generator.initMoveDeltas(MOVE_DISTANCE, len(assignments), MOVES_PER_DIMENSION)
+    optimal_assignment_scores = optimize(target_percent, min_config,
+                                            min_config_scores,
+                                            gradebook_categories,
+                                            move_generator)
     optimal_scores_dict = {}
     i = 0
-    for assignment in assignments:
+    for assignment in min_config:
         optimal_scores_dict[assignment[ASSIGNMENT_NAME]] = optimal_assignment_scores[i]
         i += 1
     return optimal_scores_dict
 
-def optimize(target_percent, assignments, current_position, gradebook_categories):
-    blank_move = []
-    moves = Move.getMoves(blank_move, current_position, target_percent,
-                            assignments, gradebook_categories)
-    next_move = getMinCostMove(moves, assignments, gradebook_categories)
-    next_cost = getCost(next_move, assignments, gradebook_categories)
+def optimize(target_percent, assignments, current_position, gradebook_categories, move_generator):
     current_cost = getCost(current_position, assignments, gradebook_categories)
-    if current_cost <= next_cost:
-        print "minima"
-        print "cost: " + str(current_cost)
-        return current_position
-    else:
-        print "move: " + str(next_move)
-        print "cost: " + str(next_cost)
-        return optimize(target_percent, assignments, next_move, gradebook_categories)
+    while True:
+        moves = move_generator.getMoves(current_position) 
+        next_move = getMinCostMove(moves, assignments, gradebook_categories)
+        next_cost = getCost(next_move, assignments, gradebook_categories)
+        if current_cost <= next_cost:
+            print "minima"
+            print "cost: " + str(current_cost)
+            return current_position
+        else:
+            print "move: " + str(next_move)
+            print "cost: " + str(next_cost)
+            current_position = next_move
+            current_cost = next_cost
 
 def getMinCostMove(moves, assignments, gradebook_categories):
     min_cost_move = None
@@ -95,6 +123,6 @@ def getCost(position, assignments, gradebook_categories):
 
 def getAssignmentCategoryAverage(assignment, gradebook_categories):
     assignment_category = assignment[ASSIGNMENT_CATEGORY]
-    category = getCategory(assignment_category, gradebook_categories)
+    category = NeededGrade.getCategory(assignment_category, gradebook_categories)
     category_average = float(category[CATEGORY_PERCENT])
     return category_average
