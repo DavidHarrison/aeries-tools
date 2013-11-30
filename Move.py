@@ -6,6 +6,8 @@ import NeededGrade
 
 class Move:
 
+    global FLOAT_ACCURACY = 4
+
     global base_move_deltas
     global target_percent
     global assignment
@@ -61,49 +63,94 @@ class Move:
             move[last_dimension] = needed_score
         return copy_moves
 
-    # TODO, use function that will give same values for each dimension
-    #   currently, the function should work, and gives a range of -1 to 1
-    #   for each dimension, though not with the same intervals
-    def getMoveDeltas(self, partial_move, remaining_vector_distance,
-                        dimensions, moves_per_dimension):
-        if len(partial_move) == dimensions - 1:
-            final_move = list(partial_move)
-            final_move.append(round(remaining_vector_distance, 4))
-            # return partial_move as the only one in a list of moves
-            return [final_move]
-        move_deltas = []
-        percent = -1
-        increment = 2.0 / (float(moves_per_dimension) - 1.0)
-        # relatively safe float comparision,
-        #   making sure that the number of repetitions does not
-        #   exceed moves_per_dimension
-        while (1 - percent) > -(0.5*increment):
-            #copy partial move
-            new_partial_move = list(partial_move)
-            # multiply the remaining distance by a value ranging from -1 to +1
-            #   (cosine's range from 0 to pi)
-            dimension_delta = round(percent * remaining_vector_distance, 4)
-            new_remaining_vector_distance = self.getRemainingDistance(
-                                                remaining_vector_distance,
-                                                dimension_delta)
-            new_partial_move.append(dimension_delta)
-            #keeps all moves on the same level of list
-            move_deltas += self.getMoveDeltas(new_partial_move,
-                                                new_remaining_vector_distance,
-                                                dimensions,
-                                                moves_per_dimension)
-            percent += increment
+    def getMoveDeltas(self, dimensions, move_specificity):
+        move_deltas = self.firstLevelMoveDeltas(dimensions)
+        i = 1
+        while i < move_specificity:
+            adjacent_point_pairs = self.getAdjacentPointPairs(move_deltas)
+            for pair in adjacent_point_sets:
+                new_move = self.getEdgeMidpoint(pair)
+                new_moves.append(new_move)
         return move_deltas
+    
+    def firstLevelMoveDeltas(self, dimensions)
+        i = 0
+        first_level_deltas = []
+        while i < dimensions:
+            j = 0
+            move_plus = []
+            move_minus = []
+            while j < dimensions:
+                if j == i:
+                    move_plus.append(1)
+                    move_minus.append(-1)
+                else:
+                    move_plus.append(0)
+                    move_minus.append(0)
+            first_level_deltas.append(move_plus)
+            first_level_deltas.append(move_minus)
+            i += 1
+        return first_level_deltas
 
-    # use Pythagorean theorem to calculate the remaining leg,
-    #   which is the new remaining_vector_distance
-    def getRemainingDistance(self, current_remaining_distance, subtract_distance):
-        try:
-            new_remaining_vector_distance = math.sqrt(current_remaining_distance**2 - subtract_distance**2)
-        #if math.sqrt fails because it was operating on a negative number,
-        #   subtract_distance must be larger than current_remaining_distance
-        #   assume that this is attributable to float calculation error and
-        #   two are the same
-        except ValueError:
-            new_remaining_vector_distance = 0.0
-        return new_remaining_vector_distance
+    def getAdjacentPointPairs(self, move_deltas):
+        adjacent_point_pairs = []
+        done_points = []
+        for point in move_deltas:
+            adjacent_points = self.getAdjacentPoints(point)
+            for adjacent_point in adjacent_points:
+                if not (adjacent_point in done_points):
+                    adjacent_point_pairs.append([point, adjacent_point])
+            done_points.append(point)
+
+    def getAdjacentPoints(self, center_point, all_points):
+        min_distance == None
+        for point in all_points:
+            if point == center_points:
+                continue
+            point_distance = self.getDistance(center_point, point)
+            if min_distance == None or self.floatLess(point_distance, min_distance):
+                min_distance = point_distance
+                adjacent_points = [point]
+            if self.floatEquals(point_distance, min_distance):
+                adjacent_points.append(point)
+        return adjacent_points
+
+    def floatLess(self, float1, float2)
+        if (not self.floatEquals(float1, float2)) and float1 < float2:
+            return True
+        else:
+            return False
+
+    def floatEquals(self, float1, float2)
+        if round(float1, self.FLOAT_ACCURACY) == round(float2, self.FLOAT_ACCURACY):
+            return True
+        else:
+            return False
+
+    def getEdgeMidpoint(self, pair):
+        point1 = pair[0]
+        point2 = pair[1]
+        midpoint = []
+        i = 0
+        while i < len(point1):
+            average_coordinate = (point1[i] + point2[i]) / 2
+            midpoint.append(average_coordinate)
+        edge_midpoint = getClosestEdgePoint(midpoint)
+        return edge_midpoint
+
+    def getClosestEdgePoint(self, internal_point):
+        edge_point = list(internal_point)
+        distance = 1
+        distance_increment = 1 / 10**self.FLOAT_ACCURACY
+        while distanceFromOrigin(edge_point) < 1:
+            distance += distance_increment
+            dimension = 0
+            while dimension < len(edge_point):
+                edge_point[dimension] *= distance
+
+    def distanceFromOrigin(self, point):
+        distance_squared = 0
+        dimension = 0
+        while dimension < len(point):
+            distance_squared += point[dimension]**2 
+        return math.sqrt(distance_squared)
