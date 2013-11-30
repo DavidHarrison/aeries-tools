@@ -27,27 +27,26 @@ class Move:
         # remove a dimension, which will be calculated
         dimensions -= 1
         self.base_move_deltas = self.getMoveDeltas(blank_move,
-                                                    maximum_vector_distance,
                                                     dimensions,
                                                     moves_per_dimension)
 
-    def getMoves(self, current_position):
-        base_moves = self.applyDeltas(current_position, self.base_move_deltas)
+    def getMoves(self, current_position, maximum_delta):
+        base_moves = self.applyDeltas(current_position, self.base_move_deltas, maximum_delta)
         moves = self.applyCalculatedAssignment(base_moves)
         return moves
 
-    def applyDeltas(self, base_position, move_deltas):
+    def applyDeltas(self, base_position, move_deltas, maximum_delta):
         moves = []
         for delta in move_deltas:
-            move = self.applyDelta(base_position, delta)
+            move = self.applyDelta(base_position, delta, maximum_delta)
             moves.append(move)
         return moves
 
-    def applyDelta(self, base_position, delta):
+    def applyDelta(self, base_position, delta, maximum_delta):
         copy_position = list(base_position)
         i = 0
         while i < len(delta):
-            copy_position[i] = str(float(copy_position[i]) + delta[i])
+            copy_position[i] = str(float(copy_position[i]) + delta[i]*maximum_delta)
             i += 1
         return copy_position
 
