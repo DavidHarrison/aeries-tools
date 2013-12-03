@@ -29,19 +29,24 @@ CATEGORY_MAX_POINTS = 'max points'
 TOTAL_CATEGORY = 'Total'
 
 def getNeededPercent(target_percent, assignment, gradebook_categories,
-                        assignments=None, assignment_scores=None):
+                        assignments=None, assignment_percents=None):
     if assignments == None:
         assignments = [assignment]
-    if assignment_scores == None:
-        assignment_scores = []
+    if assignment_percents == None:
+        assignment_percents = []
+    #works
     min_percent = getMinPercent(assignments, gradebook_categories)
+    #print "Min percent: " + str(min_percent)
+    #should give a value from 0-100 under normal circumstances
     other_assignment_deltas = getOtherAssignmentDeltas(assignments,
-                                                        assignment_scores,
+                                                        assignment_percents,
                                                         gradebook_categories,
                                                         assignment)
+    #print "Other assignment deltas: " + str(other_assignment_deltas)
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
                                                     gradebook_categories)
     overall_delta_needed = target_percent - min_percent - other_assignment_deltas
+    #print "Overall delta needed: " + str(overall_delta_needed)
     score_needed = overall_delta_needed / overall_assignment_weight
     assignment_max_points = float(assignment[ASSIGNMENT_MAX_POINTS])
     try:
@@ -186,29 +191,33 @@ def isAssignmentGraded(assignment):
     elif assignment[ASSIGNMENT_GRADING_COMPLETE] == ASSIGNMENT_GRADING_COMPLETE_FALSE:
         return False
     else:
-        print "Undefined value for grading completion: " + str(assignment[ASSIGNMENT_GRADING_COMPLETE])
+        #print "Undefined value for grading completion: " + str(assignment[ASSIGNMENT_GRADING_COMPLETE])
         raise
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 '''
 return the change in the total grade made by all assignments other than
-    assignment (with scores assignment_scores, where each of the indices of in
-    assignments and assignment_scores align)
+    assignment (with scores assignment_percents, where each of the indices of in
+    assignments and assignment_percents align)
 '''
-def getOtherAssignmentDeltas(assignments, assignment_scores, gradebook_categories,
+def getOtherAssignmentDeltas(assignments, assignment_percents, gradebook_categories,
         exclude_assignment):
     total_assignment_delta = 0
     i = 0
     for assignment in assignments:
         if assignment[ASSIGNMENT_NAME] == exclude_assignment[ASSIGNMENT_NAME]:
+            #print "excluding assignment"
             continue
         else:
-            assignment_score = float(assignment_scores[i])
+            assignment_score = float(assignment_percents[i]) * float(assignment[ASSIGNMENT_MAX_POINTS])
+            #print "Assignment score: " + str(assignment_score)
+            #works
             assignment_delta = getAssignmentDelta(assignment,
                                                     assignment_score,
                                                     assignments,
                                                     gradebook_categories)
+            #print "Assignment delta: " + str(assignment_delta)
             total_assignment_delta += assignment_delta
         i += 1
     return total_assignment_delta
@@ -219,6 +228,7 @@ return the change made to the total grade by assignment
 '''
 def getAssignmentDelta(assignment, assignment_score, assignments,
                         gradebook_categories):
+    #should be OK
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
                                                     gradebook_categories)
     assignment_delta = assignment_score * overall_assignment_weight
