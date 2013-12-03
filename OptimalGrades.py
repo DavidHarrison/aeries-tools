@@ -5,12 +5,15 @@ import math
 import Move
 import NeededGrade
 
+STARTING_MOVE_DISTANCE = 10.0
+MIN_MOVE_DISTANCE = 0.001
+
 # 4 decimal place float accuracy
 FLOAT_ACCURACY = 4
 
 #vector distance to move on non calculated assignments
 #   on each step of optimization
-MOVE_DISTANCE = 10 
+MOVE_DISTANCE = .1 
 #number of moves on each dimension
 #   (total moves = MOVES_PER_DIMENSION**(dimensions-1)
 #   including non-unique moves)
@@ -38,18 +41,19 @@ optimal way to get target_percent with assignments, given gradebook_categories
 def optimalGrades(target_percent, assignments, gradebook_categories):
     assignment = assignments[len(assignments) - 1]
     #get a list of scores such that each score will be roughly the same, which fits to target grade
-    print "Getting start scores"
+    #print "Getting start scores"
     start_scores = getStartScores(target_percent, assignment, assignments, gradebook_categories)
-    print "Start scores: " + str(start_scores)
+    #print "Start scores: " + str(start_scores)
     #init a move generator class instance
     #print "initing move gen"
     move_generator = Move.Move(target_percent, assignment, gradebook_categories, assignments)
     move_generator.initMoveDeltas(len(assignments), MOVE_SPECIFICITY)
-    #print "optimizing"
+    print "optimizing"
     optimal_assignment_percents = optimize(target_percent, assignments,
                                             start_scores,
                                             gradebook_categories,
-                                            move_generator)
+                                            move_generator,
+                                            STARTING_MOVE_DISTANCE)
     #print "making dict"
     optimal_scores_dict = toDict(assignments, optimal_assignment_percents)
     return optimal_scores_dict
@@ -84,21 +88,32 @@ def toDict(assignments, assignment_percents):
         i += 1
     return scores_dict
 
-def optimize(target_percent, assignments, current_position, gradebook_categories, move_generator):
+def optimize(target_percent, assignments, current_position, gradebook_categories, move_generator, move_distance):
     current_cost = getCost(current_position, assignments, gradebook_categories)
     while True:
-        moves = move_generator.getMoves(current_position, MOVE_DISTANCE)
+        moves = move_generator.getMoves(current_position, move_distance)
         next_move = getMinCostMove(moves, assignments, gradebook_categories)
         next_cost = getCost(next_move, assignments, gradebook_categories)
         if current_cost <= next_cost:
-            print "minima"
-            print "cost: " + str(current_cost)
-            return current_position
+            new_move_distance = move_distance / 10.0
+            if floatLess(new_move_distance, MIN_MOVE_DISTANCE):
+                print "minima"
+                print "cost: " + str(current_cost)
+                return current_position
+            else:
+                return optimize(target_percent, assignments, current_position,
+                                gradebook_categories, move_generator, new_move_distance)
         else:
             #print "move: " + str(next_move)
             #print "cost: " + str(next_cost)
             current_position = next_move
             current_cost = next_cost
+
+def floatLess(float1, float2):
+    if (not floatEquals(float1, float2)) and float1 < float2:
+        return True
+    else:
+        return False
 
 def getMinCostMove(moves, assignments, gradebook_categories):
     min_cost_move = None
