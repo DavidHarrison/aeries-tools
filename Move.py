@@ -55,31 +55,25 @@ class Move:
                                                         self.assignment,
                                                         self.gradebook_categories,
                                                         assignments=self.assignments,
-                                                        assignment_scores=move)
+                                                        assignment_percents=move)
             move[last_dimension] = needed_score
         return copy_moves
 
+    # TODO, remove repeated moves from their source
     def getMoveDeltas(self, dimensions, move_specificity):
-        #print "getting move deltas"
-        #print "getting first level move deltas"
         move_deltas = self.firstLevelMoveDeltas(dimensions)
-        #print "first level move deltas: " + str(move_deltas)
         specificity = 1
         while specificity < move_specificity:
-            #print "specifity: " + str(specificity)
             specificity += 1
-            #print "getting adjacent point pairs"
             adjacent_point_pairs = self.getAdjacentPointPairs(move_deltas)
-            #print "adjacent point pairs: " + str(adjacent_point_pairs)
             for pair in adjacent_point_pairs:
-                #print "getting edge midpoint of: " + str(pair)
                 new_move = self.getEdgeMidpoint(pair)
-                #print "new move: " + str(new_move)
-                move_deltas.append(new_move)
+                # removes repeated moves
+                if not new_move in move_deltas:
+                    move_deltas.append(new_move)
         return move_deltas
     
     def firstLevelMoveDeltas(self, dimensions):
-        #print "dimensions: " + str(dimensions)
         i = 0
         first_level_deltas = []
         while i < dimensions:
@@ -110,6 +104,9 @@ class Move:
             done_points.append(point)
         return adjacent_point_pairs
 
+    # TODO, get points not on the same dimensional band as the center_point
+    #   (need to allow a range of distances, with the greatest being the furthest
+    #   adjacent point)
     def getAdjacentPoints(self, center_point, all_points):
         min_distance = None
         for point in all_points:
@@ -145,25 +142,21 @@ class Move:
 
     def getEdgeMidpoint(self, pair):
         point1 = pair[0]
-        #print "point 1: " + str(point1)
         point2 = pair[1]
-        #print "point 2: " + str(point2)
         midpoint = []
         i = 0
         while i < len(point1):
             average_coordinate = (point1[i] + point2[i]) / 2
             midpoint.append(average_coordinate)
             i += 1
-        #print "midpoint: " + str(midpoint)
-        #print "getting edge midpoint"
         edge_midpoint = self.getClosestEdgePoint(midpoint)
-        #print "edge midpoint: " + str(edge_midpoint)
         return edge_midpoint
 
     # TODO, calculate rather than guess and check for solution
     def getClosestEdgePoint(self, internal_point):
         edge_point = list(internal_point)
         distance = 1
+        #far too slow
         #distance_increment = 1 / 10**self.FLOAT_ACCURACY
         distance_increment = .001
         while self.distanceFromOrigin(edge_point) < 1:
@@ -172,7 +165,6 @@ class Move:
             while dimension < len(edge_point):
                 edge_point[dimension] *= distance
                 dimension += 1
-            #print "edge point: " + str(edge_point)
         return edge_point
 
     def distanceFromOrigin(self, point):
