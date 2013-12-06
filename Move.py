@@ -59,74 +59,57 @@ class Move:
             move[last_dimension] = needed_score
         return copy_moves
 
-    # TODO, remove repeated moves from their source
-    def getMoveDeltas(self, dimensions, move_specificity):
-        move_deltas = self.firstLevelMoveDeltas(dimensions)
-        specificity = 1
-        while specificity < move_specificity:
-            specificity += 1
-            adjacent_point_pairs = self.getAdjacentPointPairs(move_deltas)
-            for pair in adjacent_point_pairs:
-                new_move = self.getEdgeMidpoint(pair)
-                # removes repeated moves
-                if not new_move in move_deltas:
-                    move_deltas.append(new_move)
-        return move_deltas
-    
-    def firstLevelMoveDeltas(self, dimensions):
-        i = 0
-        first_level_deltas = []
-        while i < dimensions:
-            j = 0
-            move_plus = []
-            move_minus = []
-            while j < dimensions:
-                if j == i:
-                    move_plus.append(1.0)
-                    move_minus.append(-1.0)
-                else:
-                    move_plus.append(0.0)
-                    move_minus.append(0.0)
-                j += 1
-            first_level_deltas.append(move_plus)
-            first_level_deltas.append(move_minus)
-            i += 1
-        return first_level_deltas
+    def getMoveDeltas(self, num_dimensions, move_specificity):
+        delta_angles = []
+        dimension_num = 0
+        blank_coord = []
+        #last part of the coordinate is the radius (in this case 1)
+        num_angles = num_dimensions - 1
+        polar_coords = self.getAngles(blank_coord, num_angles, move_specificity)
+        cartesian_coords = []
+        for coord in polar_coords:
+            #base radius
+            coord.append(1)
+            #print "Polar Coord: " + str(coord)
+            cartesian_coords.append(self.cartesian(coord))
+        return cartesian_coords
 
-    def getAdjacentPointPairs(self, move_deltas):
-        adjacent_point_pairs = []
-        done_points = []
-        for point in move_deltas:
-            adjacent_points = self.getAdjacentPoints(point, move_deltas)
-            for adjacent_point in adjacent_points:
-                if not (adjacent_point in done_points):
-                    adjacent_point_pairs.append([point, adjacent_point])
-            done_points.append(point)
-        return adjacent_point_pairs
+    def getAngles(self, partial_coord, num_angles, moves_per_angle):
+        if len(partial_coord) == num_angles:
+            return [partial_coord]
+        coords = []
+        angle_increment = 2 * math.pi / moves_per_angle
+        angle = 0
+        while self.floatLess(angle, 2 * math.pi):
+            coord = list(partial_coord)
+            coord.append(angle)
+            coords += self.getAngles(coord, num_angles, moves_per_angle)
+            angle += angle_increment
+        return coords
 
-    # TODO, get points not on the same dimensional band as the center_point
-    #   (need to allow a range of distances, with the greatest being the furthest
-    #   adjacent point)
-    def getAdjacentPoints(self, center_point, all_points):
-        min_distance = None
-        for point in all_points:
-            if point == center_point:
-                continue
-            point_distance = self.distance(center_point, point)
-            if min_distance == None or self.floatLess(point_distance, min_distance):
-                min_distance = point_distance
-                adjacent_points = [point]
-            if self.floatEquals(point_distance, min_distance):
-                adjacent_points.append(point)
-        return adjacent_points
-
-    def distance(self, point1, point2):
-        distance_squared = 0
+    def cartesian(self, polar_coordinate):
+        #length of a polar and cartesian coordinates are the same
+        num_dimensions = len(polar_coordinate)
+        #number of angles in the polar coordinate
+        num_angles = num_dimensions - 1
+        #radius is the last element of the polar coordinate
+        radius = polar_coordinate[num_dimensions - 1]
+        cartesian_coordinate = []
         dimension = 0
-        while dimension < len(point1):
-            distance_squared += (point1[dimension] - point2[dimension])**2 
+        while dimension < num_dimensions:
+            d_vector = radius
+            i = 0
+            #multiply by every cosine up to the 
+            while i < num_angles - dimension:
+                d_vector *= math.cos(polar_coordinate[i])
+                i += 1
+            #if not the first dimension, which is entirely cosine
+            if dimension != 0:
+                #multiply the vector by the sine of the num_angles - dimension
+                d_vector *= math.sin(polar_coordinate[num_angles - dimension])
+            cartesian_coordinate.append(d_vector)
             dimension += 1
-        return math.sqrt(distance_squared)
+        return cartesian_coordinate
 
     def floatLess(self, float1, float2):
         if (not self.floatEquals(float1, float2)) and float1 < float2:
@@ -139,36 +122,3 @@ class Move:
             return True
         else:
             return False
-
-    def getEdgeMidpoint(self, pair):
-        point1 = pair[0]
-        point2 = pair[1]
-        midpoint = []
-        i = 0
-        while i < len(point1):
-            average_coordinate = (point1[i] + point2[i]) / 2
-            midpoint.append(average_coordinate)
-            i += 1
-        edge_midpoint = self.getClosestEdgePoint(midpoint)
-        return edge_midpoint
-
-    # TODO, calculate rather than guess and check for solution
-    def getClosestEdgePoint(self, internal_point):
-        edge_point = list(internal_point)
-        distance = 1
-        #far too slow
-        #distance_increment = 1 / 10**self.FLOAT_ACCURACY
-        distance_increment = .001
-        while self.distanceFromOrigin(edge_point) < 1:
-            distance += distance_increment
-            dimension = 0
-            while dimension < len(edge_point):
-                edge_point[dimension] *= distance
-                dimension += 1
-        return edge_point
-
-    def distanceFromOrigin(self, point):
-        origin = []
-        for dimension in point:
-            origin.append(0)
-        return self.distance(origin, point)
