@@ -1,5 +1,7 @@
 #!/usr/bin/python2
 
+from decimal import Decimal
+
 # define dictionary keywords for assignment and category dictionaries
 ## assignment keywords
 ### how many points were recieved on the assignment ('my points')
@@ -31,6 +33,7 @@ TOTAL_CATEGORY = 'Total'
 # TODO, deal with extra credit assignments
 def getNeededPercent(target_percent, assignment, gradebook_categories,
                         assignments=None, assignment_percents=None):
+    target_percent = Decimal(target_percent)
     if assignments == None:
         assignments = [assignment]
     if assignment_percents == None:
@@ -44,16 +47,16 @@ def getNeededPercent(target_percent, assignment, gradebook_categories,
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
                                                     gradebook_categories)
     overall_delta_needed = target_percent - min_percent - other_assignment_deltas
-    points_needed = (overall_delta_needed / overall_assignment_weight) / 100
-    assignment_max_points = float(assignment[ASSIGNMENT_MAX_POINTS])
+    points_needed = (overall_delta_needed / overall_assignment_weight) / Decimal('100.0')
+    assignment_max_points = Decimal(assignment[ASSIGNMENT_MAX_POINTS])
     try:
-        percent_needed = points_needed / assignment_max_points * 100
+        percent_needed = points_needed / assignment_max_points * Decimal('100.0')
     except ZeroDivisionError:
         return None
-    return percent_needed
+    return str(percent_needed)
 
 def getMinPercent(assignments, gradebook_categories):
-    min_percent = 0
+    min_percent = Decimal('0.0')
     for category in gradebook_categories:
         category_name = category[CATEGORY_NAME]
         if category_name == TOTAL_CATEGORY:
@@ -116,7 +119,7 @@ def getCategory(category_name, gradebook_categories):
 #return the amount of weighting used in total by all categories (if all
 #    categories are active, this should be 1 (100%))
 def getWeightingUsed(assignments, gradebook_categories):
-    weighting_used = 0
+    weighting_used = Decimal('0.0')
     for category in gradebook_categories:
         category_name = category[CATEGORY_NAME]
         assignment_categories = getAssignmentCategories(assignments)
@@ -131,7 +134,7 @@ def getWeightingUsed(assignments, gradebook_categories):
 
 #return whether or not the category is active (has non-zero assignments in it)
 def isCategoryActive(category):
-    if float(category[CATEGORY_MAX_POINTS]) == 0:
+    if Decimal(category[CATEGORY_MAX_POINTS]) == Decimal('0.0'):
         return False
     else:
         return True
@@ -139,7 +142,7 @@ def isCategoryActive(category):
 #return the categories weight (as given on the weighting table, not necessarily
 #    the one used) as a decimal
 def getGivenCategoryWeight(category):
-    return float(category[CATEGORY_WEIGHT]) / 100
+    return Decimal(category[CATEGORY_WEIGHT]) / Decimal('100.0')
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -149,23 +152,23 @@ def getMinCategoryPercent(category_name, assignments, gradebook_categories):
     category = getCategory(category_name, gradebook_categories)
     category_score_points = getCategoryPoints(category, assignments)['score']
     category_max_points = getCategoryPoints(category, assignments)['max']
-    min_category_percent = (category_score_points / category_max_points) * 100
+    min_category_percent = (category_score_points / category_max_points) * Decimal('100.0')
     return min_category_percent
 
 def getCategoryPoints(category, assignments):
-    category_score_points = float(category[CATEGORY_SCORE_POINTS])
-    category_max_points = float(category[CATEGORY_MAX_POINTS])
+    category_score_points = Decimal(category[CATEGORY_SCORE_POINTS])
+    category_max_points = Decimal(category[CATEGORY_MAX_POINTS])
     for assignment in assignments:
         if assignment[ASSIGNMENT_CATEGORY] == category[CATEGORY_NAME]:
             #if the assignment is already graded, remove is points from those
             #    recieved (but not max points) to give it a score of zero
             if isAssignmentGraded(assignment):
-                category_score_points -= float(assignment[ASSIGNMENT_SCORE_POINTS])
+                category_score_points -= Decimal(assignment[ASSIGNMENT_SCORE_POINTS])
             #if the assignment has not yet been graded, add its max points to the
             #   categories max points and do not add any score points to add the
             #   assignment with a score of zero
             else:
-                category_max_points += float(assignment[ASSIGNMENT_MAX_POINTS])
+                category_max_points += Decimal(assignment[ASSIGNMENT_MAX_POINTS])
         else:
             continue
     return  {
@@ -189,13 +192,15 @@ def isAssignmentGraded(assignment):
 #    assignments and assignment_percents align)
 def getOtherAssignmentDeltas(assignments, assignment_percents, gradebook_categories,
         exclude_assignment):
-    total_assignment_delta = 0
+    total_assignment_delta = Decimal('0.0')
     i = 0
     for assignment in assignments:
         if assignment[ASSIGNMENT_NUMBER] == exclude_assignment[ASSIGNMENT_NUMBER]:
             continue
         else:
-            assignment_score = float(assignment_percents[i]) * float(assignment[ASSIGNMENT_MAX_POINTS])
+            assignment_percent = Decimal(assignment_percents[i])
+            assignment_max_points = Decimal(assignment[ASSIGNMENT_MAX_POINTS])
+            assignment_score = assignment_percent * assignment_max_points
             assignment_delta = getAssignmentDelta(assignment,
                                                     assignment_score,
                                                     assignments,
@@ -208,7 +213,6 @@ def getOtherAssignmentDeltas(assignments, assignment_percents, gradebook_categor
 #    (with score assignment_score)
 def getAssignmentDelta(assignment, assignment_score, assignments,
                         gradebook_categories):
-    #should be OK
     overall_assignment_weight = getAssignmentWeight(assignment, assignments,
                                                     gradebook_categories)
     assignment_delta = assignment_score * overall_assignment_weight
@@ -222,31 +226,31 @@ def getAssignmentWeight(assignment, assignments, gradebook_categories):
     category = getCategory(assignment_category, gradebook_categories)
     if not isWeightingUsed(gradebook_categories):
         total_points_max = getTotalPointsMax(assignments, gradebook_categories)
-        assignment_weight = 1 / total_points_max
+        assignment_weight = Decimal('1.0') / total_points_max
     else:
         assignment_weight_in_category = getAssignmentWeightInCategory(assignments, category)
         assignment_weight = assignment_weight_in_category * category_weight
     return assignment_weight
 
 def getTotalPointsMax(assignments, gradebook_categories):
-    total_points_max = 0
+    total_points_max = Decimal('0.0')
     for category in gradebook_categories:
         category_name = category[CATEGORY_NAME]
         if category_name == TOTAL_CATEGORY:
             continue
         if isCategoryActive(category):
-            total_points_max += float(category[CATEGORY_MAX_POINTS])
+            total_points_max += Decimal(category[CATEGORY_MAX_POINTS])
     for assignment in assignments:
         if not isAssignmentGraded(assignment):
-            total_points_max += float(assignment[ASSIGNMENT_MAX_POINTS])
+            total_points_max += Decimal(assignment[ASSIGNMENT_MAX_POINTS])
     return total_points_max
 
 def getAssignmentWeightInCategory(assignments, category):
-    category_max = float(category[CATEGORY_MAX_POINTS])
+    category_max = Decimal(category[CATEGORY_MAX_POINTS])
     for assignment in assignments:
         if not isAssignmentGraded(assignment):
-            category_max += float(assignment[ASSIGNMENT_MAX_POINTS])
+            category_max += Decimal(assignment[ASSIGNMENT_MAX_POINTS])
     #for each percent on the assignment, how many points will the category grade
     #    change
-    assignment_weight_in_category = 1.0 / category_max
+    assignment_weight_in_category = Decimal('1.0') / category_max
     return assignment_weight_in_category
