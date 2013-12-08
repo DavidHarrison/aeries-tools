@@ -1,119 +1,135 @@
-#!/usr/bin/python2
+#!/usr/bin/python2 
 
 import math
 
 import Move
-import NeededGrade
+import GradeCalculator
+import Constants as c
 
 STARTING_MOVE_DISTANCE = 10.0
 MIN_MOVE_DISTANCE = 0.001
 
-# 4 decimal place float accuracy
-FLOAT_ACCURACY = 4
-
 #vector distance to move on non calculated assignments
 #   on each step of optimization
-MOVE_DISTANCE = .1 
-#number of moves on each dimension
-#   (total moves = MOVES_PER_DIMENSION**(dimensions-1)
-#   including non-unique moves)
-MOVE_SPECIFICITY = 5
+MOVE_DISTANCE = 0.1
+#angles around a circle for each dimension
+MOVE_SPECIFICITY = 3
 
-# define dictionary keywords for assignment and category dictionaries
-## assignment keywords
-### the name of the category the assignment is part of
-ASSIGNMENT_CATEGORY = 'category'
-### the name of the assignment (short description)
-# TODO, identify assignments by assignment number
-ASSIGNMENT_NAME = 'description'
+#how many places to compare a decimal to
+DECIMAL_COMPARE = 4
 
-## gradebook categories keywords
-### the percentage of the category as it stands in Aeries
-CATEGORY_PERCENT = 'grade percent'
-
-'''
-optimal way to get target_percent with assignments, given gradebook_categories
-    target_percent: float (probably 0-100)
-    assignments: list of assignment dictionaries (from aeries-api)
-    gradebook_categories: list of category dictionaries from the gradebook
-        (with or without weighting) (from aeries-api)
-'''
+#optimal way to get target_percent with assignments, given gradebook_categories
+#    target_percent: decimal string (probably 0-100)
+#    assignments: list of assignment dictionaries (from aeries-api)
+#    gradebook_categories: list of category dictionaries from the gradebook
+#        (with or without weighting) (from aeries-api)
+# **Takes a lot of time after 6 assignments** in one test 5: 0.68s, 6: 1.40s, 7: 13.62s, 8: 27.70s, 9: 91.01s, 10: 276.05s
 def optimalGrades(target_percent, assignments, gradebook_categories):
-    assignment = assignments[len(assignments) - 1]
+    dependent_assignment_index = 0
+    grade_calculator = GradeCalculator.GradedCalculator(gradebook_categories)
+    grade_calculator.set(target_percent=target_percent, assignments=assignments,
+                         dependent_assignment_index=dependent_assignment_index)
     #get a list of scores such that each score will be roughly the same, which fits to target grade
-    #print "Getting start scores"
-    start_scores = getStartScores(target_percent, assignment, assignments, gradebook_categories)
-    #print "Start scores: " + str(start_scores)
+    start_scores = getStartScores(grade_calculator)
+    print "Start scores: " + str(start_scores)
     #init a move generator class instance
-    #print "initing move gen"
-    move_generator = Move.Move(target_percent, assignment, gradebook_categories, assignments)
-    move_generator.initMoveDeltas(len(assignments), MOVE_SPECIFICITY)
-    print "optimizing"
-    optimal_assignment_percents = optimize(target_percent, assignments,
-                                            start_scores,
-                                            gradebook_categories,
-                                            move_generator,
-                                            STARTING_MOVE_DISTANCE)
-    #print "making dict"
+    dimensions = len(assignments)
+    move_generator = Move.Move(dimensions, MOVE_SPECIFICITY)
+    #print "optimizing"
+    optimal_assignment_percents = optimize(start_scores, STARTING_MOVE_DISTANCE,
+                                           grade_calculator, move_generator,
+                                           assignments, gradebook_categories)
     optimal_scores_dict = toDict(assignments, optimal_assignment_percents)
     return optimal_scores_dict
 
-#works, getNeededPercent does not
-def getStartScores(target_percent, assignment, assignments, gradebook_categories):
-    i = 0
+def getStartScores(grade_calculator):
+    #both are arbitrary staring points (chosen for relative speed,
+    #   though time for this step is fairly insignificant)
+    independent_percent = grade_calculator.target_percent
+    increment = 10.0
     while True:
-        assignment_percents = [i] * (len(assignments) - 1)
-        needed_percent = NeededGrade.getNeededPercent(target_percent,
-                                                        assignment,
-                                                        gradebook_categories,
-                                                        assignments=assignments,
-                                                        assignment_percents=assignment_percents)
-        if floatEquals(i, needed_percent):
+        assignment_scores = makeAssignmentScores(independent_percent,
+                                                 assignment,
+                                                 assignments)
+        grade_calculator.set(assignment_scores=assignment_scores)
+        needed_score = grade_calculator.getNeededScore()
+        needed_score = float(needed_score)
+        needed_percent = percent(assignment, needed_score)
+        #if they are the same to DECIMAL_COMPARE digits, break
+        if round(independent_percent, DECIMAL_COMPARE) == round(needed_percent, DECIMAL_COMPARE):
             break
-        # TODO, find a safer increment algorithm
-        i += (needed_percent - i) / 10.0
-    return assignment_percents + [needed_percent]
+        new_direction = (needed_percent - independent_percent) / abs(needed_percent - independent_percent)
+        #if increment changes sign
+        if increment / new_direction < 0:
+            #cut increment in half, and reverse it
+            increment /= -2
+        independent_percent += increment
+    assignment_scores.append(needed_score)
+    return assignment_scores
 
-def floatEquals(float1, float2):
-    if round(float1, FLOAT_ACCURACY) == round(float2, FLOAT_ACCURACY):
-        return True
-    else:
-        return False
+def makeAssignmentScores(percent, assignment, assignments):
+    assignment_scores = []
+    for independent_assignment in assignments:
+        if independent_assignment != assignment:
+            assignment_scores.append(score(assignment, percent))
+    return assignment_scores
 
-def toDict(assignments, assignment_percents):
+# returns the score given on the assignment given the percent (will not be exact)
+def score(assignment, percent):
+    max_points = float(assignment[c.ASSIGNMENT_MAX_POINTS])
+    score = max_points * percent / 100.0
+    return score
+
+# returns the percent recieved on the assignment given the score (will not be exact)
+def percent(assignment, score):
+    max_points = float(assignment[c.ASSIGNMENT_MAX_POINTS])
+    try:
+        percent = score / max_points * 100.0
+    except ZeroDivisionError:
+        return 0
+    return percent
+
+# return a dictionary with keywords of the assignment's ASSIGNMENT_NAME and a value of the score
+def toDict(assignments, assignment_scores):
     scores_dict = {}
     i = 0
     for assignment in assignments:
-        scores_dict[assignment[ASSIGNMENT_NAME]] = assignment_percents[i]
+        scores_dict[assignment[c.ASSIGNMENT_NAME]] = assignment_scores[i]
         i += 1
     return scores_dict
 
-def optimize(target_percent, assignments, current_position, gradebook_categories, move_generator, move_distance):
+def optimize(current_position, move_distance, grade_calculator, move_generator, assignments, gradebook_categories):
+    #print "move distance:  "  + str(move_distance)
     current_cost = getCost(current_position, assignments, gradebook_categories)
     while True:
         moves = move_generator.getMoves(current_position, move_distance)
+        moves = fitToGrade(moves, grade_calculator)
         next_move = getMinCostMove(moves, assignments, gradebook_categories)
         next_cost = getCost(next_move, assignments, gradebook_categories)
         if current_cost <= next_cost:
             new_move_distance = move_distance / 10.0
-            if floatLess(new_move_distance, MIN_MOVE_DISTANCE):
+            if new_move_distance < MIN_MOVE_DISTANCE:
                 print "minima"
                 print "cost: " + str(current_cost)
                 return current_position
             else:
-                return optimize(target_percent, assignments, current_position,
-                                gradebook_categories, move_generator, new_move_distance)
+                return optimize(current_position, new_move_distance,
+                                grade_calculator, move_generator,
+                                assignments, gradebook_categories)
         else:
-            #print "move: " + str(next_move)
-            #print "cost: " + str(next_cost)
+            print "move: " + str(next_move)
+            print "cost: " + str(next_cost)
             current_position = next_move
             current_cost = next_cost
 
-def floatLess(float1, float2):
-    if (not floatEquals(float1, float2)) and float1 < float2:
-        return True
-    else:
-        return False
+def fitToGrade(moves, grade_calculator):
+    copy_moves = list(moves)
+    last_dimension = len(moves[0]) - 1
+    for move in copy_moves:
+        grade_calculator.set(assignment_scores=moves)
+        needed_score = grade_calculator.getNeededScore()
+        move[last_dimension] = needed_score
+    return copy_moves
 
 def getMinCostMove(moves, assignments, gradebook_categories):
     min_cost_move = None
@@ -124,22 +140,27 @@ def getMinCostMove(moves, assignments, gradebook_categories):
             min_cost_move_cost = move_cost
     return min_cost_move
 
-'''
-vector distance squared (no need to root) from the averages for the
-    assignment categories
-'''
+#vector distance squared (no need to root) from the averages for the
+#    assignment categories
 def getCost(position, assignments, gradebook_categories):
-    cost = 0
+    cost = 0.0
     for score in position:
-        score_assignment = assignments[position.index(score)]
-        score_category_average = getAssignmentCategoryAverage(
-                                                score_assignment,
-                                                gradebook_categories)
-        cost += (float(score) - score_category_average)**2
+        assignment = assignments[position.index(score)]
+        try:
+            assignment_percent = percent(assignment, float(score))
+        #a purely extra credit assignment
+        #TODO, find a reasonable cost for these assignments
+        except ZeroDivisionError:
+            distance = 0
+        else:
+            category_average_percent = getAssignmentCategoryAverage(assignment,
+                                                                    gradebook_categories)
+            distance = assignment_percent - category_average_percent
+        cost += distance**2
     return cost
 
 def getAssignmentCategoryAverage(assignment, gradebook_categories):
-    assignment_category = assignment[ASSIGNMENT_CATEGORY]
+    assignment_category = assignment[c.ASSIGNMENT_CATEGORY]
     category = NeededGrade.getCategory(assignment_category, gradebook_categories)
-    category_average = float(category[CATEGORY_PERCENT])
-    return category_average
+    category_average_percent = float(category[c.CATEGORY_SCORE_POINTS]) / float(category[c.CATEGORY_MAX_POINTS])
+    return category_average_percent
