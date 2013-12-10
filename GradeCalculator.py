@@ -27,7 +27,7 @@ class GradeCalculator:
             dependent_assignment_index=None, assignment_scores=None):
 
         if target_percent != None:
-            self.target_percent = Fraction(target_percent)
+            self.target_percent = Fraction(str(target_percent))
 
         if assignments != None:
             self.assignments = assignments
@@ -38,20 +38,20 @@ class GradeCalculator:
                 self.assignment_weights.append(weight)
                 i += 1
 
+        if dependent_assignment_index != None:
+            self.dependent_assignment_index = dependent_assignment_index
+
         if assignment_scores != None:
             self.assignment_scores = []
             self.assignment_deltas = []
             i = 0
             while i < len(assignment_scores):
-                score = Fraction(assignment_scores[i])
+                score = Fraction(str(assignment_scores[i]))
                 self.assignment_scores.append(score)
                 delta = self.assignmentDelta(i)
                 self.assignment_deltas.append(delta)
                 i += 1
             self.minimum_percent = self.minPercent()
-
-        if dependent_assignment_index != None:
-            self.dependent_assignment_index = dependent_assignment_index
             self.other_assignment_deltas = self.otherAssignmentDeltas()
 
 #===============================================================================
@@ -96,6 +96,7 @@ class GradeCalculator:
             category_weight = given_category_weight / total_weighting_used
         return category_weight
 
+    #the weight of the category given in the table (its weight when all categories are active)
     def givenCategoryWeight(self, category):
         given_category_weight = Fraction(category[c.CATEGORY_WEIGHT]) / Fraction('100.0')
         return given_category_weight
@@ -141,13 +142,11 @@ class GradeCalculator:
                 #    recieved (but not max points) to give it a score of zero
                 if self.isAssignmentGraded(assignment):
                     category_score_points -= Fraction(assignment[c.ASSIGNMENT_SCORE_POINTS])
-                    #print "remove: " + assignment[ASSIGNMENT_SCORE_POINTS]
                 #if the assignment has not yet been graded, add its max points to the
                 #   categories max points and do not add any score points to add the
                 #   assignment with a score of zero
                 else:
                     category_max_points += Fraction(assignment[c.ASSIGNMENT_MAX_POINTS])
-                    #print "add: " + assignment[ASSIGNMENT_MAX_POINTS]
             else:
                 continue
         return  {
@@ -182,10 +181,18 @@ class GradeCalculator:
 
     #return whether or not the category is active (has graded non-zero (max point) assignments in it)
     def isCategoryActive(self, category):
-        if Fraction(category[c.CATEGORY_MAX_POINTS]) == Fraction('0.0'):
-            return False
-        else:
+        #if the category has points in it
+        if Fraction(category[c.CATEGORY_MAX_POINTS]) != Fraction('0.0'):
             return True
+        #if a non-zero assignment will be added to the category for the calculation
+        for assignment in self.assignments:
+            assignment_category = assignment[c.ASSIGNMENT_CATEGORY]
+            category_name = category[c.CATEGORY_NAME]
+            assignment_max_points = Fraction(assignment[c.ASSIGNMENT_MAX_POINTS])
+            if assignment_category == category_name and assignment_max_points != Fraction('0.0'):
+                return True
+        #otherwise, return False
+        return False
 
     #return the percent change in the category 1 point in the assignment makes
     #   at the categories minimum percent configuration
@@ -208,7 +215,7 @@ class GradeCalculator:
     def assignmentDelta(self, assignment_index):
         assignment_weight = self.assignment_weights[assignment_index]
         assignment_score = self.assignment_scores[assignment_index]
-        assignment_delta = assignment_score * assignment_weight
+        assignment_delta = assignment_score * assignment_weight * 100
         return assignment_delta
 
     #the sum of assignment deltas not including assignment at self.dependent_assignment_index
@@ -225,18 +232,15 @@ class GradeCalculator:
 ## SCORE CALCULATION
 
     def minPercent(self):
-        total_category = self.getCategory(c.TOTAL_CATEGORY)
-        #TODO, calculate out to avoid roundoff error
-        gradebook_percent = Fraction(total_category[c.CATEGORY_PERCENT])
-        i = 0
-        while i < len(self.assignments):
-            if self.isAssignmentGraded(self.assignments[i]):
-                assignment_weight = self.assignment_weights[i]
-                assignment_score = Fraction(self.assignments[i][c.ASSIGNMENT_SCORE_POINTS])
-                delta_from_current = assignment_weight * assignment_score * Fraction('100.0')
-                gradebook_percent -= delta_from_current
-            i += 1
-        return gradebook_percent
+        min_percent = 0
+        for category in self.categories:
+            if category[c.CATEGORY_NAME] != c.TOTAL_CATEGORY and self.isCategoryActive(category):
+                min_percent += self.minCategoryPercent(category) * self.categoryWeight(category)
+        return min_percent
+
+    def minCategoryPercent(self, category):
+        category_points = self.categoryPoints(category)
+        return category_points['score'] / category_points['max'] * 100
 
 #===============================================================================
 ## SCORE CALCULATION
@@ -245,20 +249,15 @@ class GradeCalculator:
         self.assureVariablesInitialized()
         #the percent if all assignments were to recieve 0 points
         min_percent = self.minimum_percent
-        #print "min_percent: " + str(self.decimal(min_percent))
         #the change in the min_percent when assignments have assignment_scores
         #   (should give a value from 0-100 under normal circumstances)
         other_assignment_deltas = self.other_assignment_deltas
-        #print "other_assignment_deltas: " + str(self.decimal(other_assignment_deltas))
         #how many points change in the overall grade per point change in the assignment
         assignment_weight = self.assignment_weights[self.dependent_assignment_index]
-        #print "overall_assignment_weight: " + str(self.decimal(assignment_weight))
         #how much of a change in grade percent is needed, accounting for points in assignment_scores
         delta_needed = self.target_percent - min_percent - other_assignment_deltas
-        #print "overall_delta_needed: " + str(self.decimal(delta_needed))
         #the number of points needed on the assignment
         points_needed = (delta_needed / assignment_weight) / Fraction('100.0')
-        #print "points_needed: " + str(self.decimal(points_needed))
         points_needed = self.decimal(points_needed)
         return str(points_needed)
 
