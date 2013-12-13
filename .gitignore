@@ -11,3 +11,6 @@ Old/*
 
 #json test data
 *.json
+
+#file including tests (format in Tests.txt)
+Tests.py
