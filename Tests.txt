@@ -1,0 +1,17 @@
+#Template for Tests.py file with tests for OptimalGrades
+ASSIGNMENT_TESTS = [
+    {'gradebook': int(gradebook position in list), 'assignment': int(assignment position in list (not assignment number)), 'percent': str(percent (0-100))},
+]
+
+#number of dimensions
+DIMENSIONS = int(number of dimensions)
+#number of angles in each (dimension - 1)
+MOVE_SPECIFICITY = int(number of angles in each (dimension - 1))
+
+OPTIMIZATION_TESTS = [
+    {
+        'gradebook': int(gradebook position in list),
+        'assignments': list(int(assignment position in list (not assignment number))),
+        'percent': int(percent (0-100))
+    }
+]
