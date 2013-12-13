@@ -67,7 +67,7 @@ def vectorDistance(coordinate):
     return math.sqrt(vector_distance_squared)
 
 def testOptimalGrades(data):
-        for test in Tests.OPTIMIZATION_TESTS:
+    for test in Tests.OPTIMIZATION_TESTS:
         gradebook = data[test['gradebook'] - 1]
         assignments = []
         for assignment_number in test['assignments']:
